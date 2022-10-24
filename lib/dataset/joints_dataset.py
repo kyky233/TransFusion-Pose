@@ -117,6 +117,12 @@ class JointsDataset(Dataset):
 
         # ==================================== Image ====================================
         image_dir = 'images.zip@' if self.data_format == 'zip' else ''
+        db_rec['source'] = db_rec['source'].replace('h36m', 'human36m')
+        db_rec['image'] = db_rec['image'].replace('\\', '/')
+        # print(f"self.root = {self.root}")
+        # print(f"db_rec['source'] = {db_rec['source']}")
+        # print(f"image_dir = {image_dir}")
+        # print(f"db_rec['image'] = {db_rec['image']}")
         image_file = osp.join(self.root, db_rec['source'], image_dir, 'images',
                               db_rec['image'])
         if self.data_format == 'zip':
