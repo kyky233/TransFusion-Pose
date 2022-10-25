@@ -3,7 +3,7 @@ MODEL: multiview_transpose
 DATA_DIR: ''
 OUTPUT_DIR: 'output'
 LOG_DIR: 'log'
-WORKERS: 16
+WORKERS: 8
 PRINT_FREQ: 100
 
 DATASET:

@@ -111,6 +111,7 @@ def main():
 
         # ================== save MPJPE score ==================
         if config.DATASET.TRAIN_DATASET == 'multiview_h36m':
+            datum['image'] = datum['image'].replace('\\', '/')
             seq, frame = datum['image'].split('/')[1].split('_ca_')      # s_11_act_16_subact_01, 04_000090.jpg
             frame_name = seq + frame[2:-4]
             mpjpe_score_output[frame_name] = mpjpe
