@@ -117,14 +117,20 @@ class JointsDataset(Dataset):
 
         # ==================================== Image ====================================
         image_dir = 'images.zip@' if self.data_format == 'zip' else ''
-        db_rec['source'] = db_rec['source'].replace('h36m', 'human36m')
-        db_rec['image'] = db_rec['image'].replace('\\', '/')
-        # print(f"self.root = {self.root}")
-        # print(f"db_rec['source'] = {db_rec['source']}")
-        # print(f"image_dir = {image_dir}")
-        # print(f"db_rec['image'] = {db_rec['image']}")
-        image_file = osp.join(self.root, db_rec['source'], image_dir, 'images',
-                              db_rec['image'])
+        if 'h36m' in db_rec['source']:
+            db_rec['source'] = db_rec['source'].replace('h36m', 'human36m')
+            db_rec['image'] = db_rec['image'].replace('\\', '/')
+            # print(f"self.root = {self.root}")
+            # print(f"db_rec['source'] = {db_rec['source']}")
+            # print(f"image_dir = {image_dir}")
+            # print(f"db_rec['image'] = {db_rec['image']}")
+            image_file = osp.join(self.root, db_rec['source'], image_dir, 'images',
+                                  db_rec['image'])
+        elif 'mvhw' in db_rec['source']:
+            img_file = ''
+        else:
+            raise Exception(f"please denote db_rec['source']")
+
         if self.data_format == 'zip':
             from utils import zipreader
             data_numpy = zipreader.imread(
@@ -133,7 +139,8 @@ class JointsDataset(Dataset):
             data_numpy = cv2.imread(
                 image_file, cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
 
-        data_numpy = data_numpy[:1000]                  # According to ET
+        if 'human36m' in db_rec['source']:
+            data_numpy = data_numpy[:1000]                  # According to ET
 
         # ==================================== Label ====================================
         joints = db_rec['joints_2d'].copy()             # (17, 2)   in original image scale (1000, 1000)
