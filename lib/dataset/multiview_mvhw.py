@@ -119,22 +119,22 @@ class MultiViewMVHW(JointsDataset):
         self.db_file = 'group_{}_cam{}_tp.pkl'.format(self.image_set, self.num_views)
         self.db_file = os.path.join(self.dataset_root, self.db_file)
 
-        # if osp.exists(self.db_file):
-        #     info = pickle.load(open(self.db_file, 'rb'))
-        #     assert info['sequence_list'] == self.sequence_list
-        #     assert info['interval'] == self._interval
-        #     assert info['cam_list'] == self.cam_list
-        #     self.db = info['db']
-        # else:
-        #     self.db = self._get_db()
-        #     info = {
-        #         'sequence_list': self.sequence_list,
-        #         'interval': self._interval,
-        #         'cam_list': self.cam_list,
-        #         'db': self.db
-        #     }
-        #     pickle.dump(info, open(self.db_file, 'wb'))
-        self.db = self._get_db()
+        if osp.exists(self.db_file):
+            info = pickle.load(open(self.db_file, 'rb'))
+            assert info['sequence_list'] == self.sequence_list
+            assert info['interval'] == self._interval
+            assert info['cam_list'] == self.cam_list
+            self.db = info['db']
+        else:
+            self.db = self._get_db()
+            info = {
+                'sequence_list': self.sequence_list,
+                'interval': self._interval,
+                'cam_list': self.cam_list,
+                'db': self.db
+            }
+            pickle.dump(info, open(self.db_file, 'wb'))
+        # self.db = self._get_db()
         self.db_size = len(self.db)
 
         self.u2a_mapping = super().get_mapping()
@@ -182,6 +182,7 @@ class MultiViewMVHW(JointsDataset):
                 frame_idx = int(frame_idx)
                 if np.isnan(kpts_2d[::2, frame_idx]).any() or np.isnan(kpts_3d[frame_idx]).any():
                     logger.info(f'NaN found in keypoints! {seq} - {frame_idx:06d}')
+                    img_num += 1
                     continue
 
                 # traverse cameras
