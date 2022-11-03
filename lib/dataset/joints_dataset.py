@@ -127,7 +127,7 @@ class JointsDataset(Dataset):
             image_file = osp.join(self.root, db_rec['source'], image_dir, 'images',
                                   db_rec['image'])
         elif 'mvhw' in db_rec['source']:
-            img_file = ''
+            image_file = db_rec['image']
         else:
             raise Exception(f"please denote db_rec['source']")
 
@@ -291,7 +291,11 @@ class JointsDataset(Dataset):
         grid = self.grid.clone()                # Tensor,   (hw, 2), val in 0-256
         # transform to original image R.T.dot(x.T) + T
         coords = affine_transform_pts(grid.numpy(), trans_inv)  # array, size: (hw, 2), val: 0-1000
-
+        # print(f"coords = {coords}")
+        # print(f"cx = {camera['cx']}")
+        # print(f"fx = {camera['fx']}")
+        # print(f"cy = {camera['cy']}")
+        # print(f"fy = {camera['fy']}")
         coords[:, 0] = (coords[:, 0] - camera['cx'][0]) / camera['fx'][0] * multiplier      # array
         coords[:, 1] = (coords[:, 1] - camera['cy'][0]) / camera['fy'][0] * multiplier
 

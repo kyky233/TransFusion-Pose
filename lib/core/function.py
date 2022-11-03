@@ -29,7 +29,7 @@ import random
 logger = logging.getLogger(__name__)
 
 
-NUM_VIEW = {'multiview_h36m': 4, 'multiview_skipose': 6}
+NUM_VIEW = {'multiview_h36m': 4, 'multiview_skipose': 6, 'multiview_mvhw': 4}
 
 # pick the neighboring camera, same as Epipolar Transformers
 cam_rank = {

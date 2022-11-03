@@ -6,4 +6,4 @@ from dataset.mpii import MPIIDataset as mpii
 from dataset.h36m import H36MDataset as h36m
 from dataset.multiview_h36m import MultiViewH36M as multiview_h36m
 from dataset.multiview_skipose import MultiViewSkiPose as multiview_skipose
-
+from dataset.multiview_mvhw import MultiViewMVHW as multiview_mvhw
