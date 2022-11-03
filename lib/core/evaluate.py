@@ -59,6 +59,8 @@ def accuracy(output, target, hm_type='gaussian', thr=0.5):
     avg_acc = 0
     cnt = 0
 
+    breakpoint()
+
     for i in range(len(idx)):
         acc[i + 1] = dist_acc(dists[idx[i]])
         if acc[i + 1] >= 0:

@@ -1,0 +1,36 @@
+GPUS: '-1'
+MODEL: multiview_transpose
+DATA_DIR: ''
+OUTPUT_DIR: 'output'
+LOG_DIR: 'log'
+WORKERS: 8
+PRINT_FREQ: 100
+
+DATASET:
+  TRAIN_DATASET: multiview_mvhw_test
+  TEST_DATASET: multiview_mvhw_test
+  ROOT: ''
+  TRAIN_SUBSET: train
+  TEST_SUBSET: validation
+  DATA_FORMAT: 'jpg'
+  ROT_FACTOR: 0
+  SCALE_FACTOR: 0
+  WITH_DAMAGE: false
+  CROP: true
+
+NETWORK:
+  HEATMAP_SIZE:
+  - 128
+  - 240
+  IMAGE_SIZE:
+  - 512
+  - 960
+  NUM_JOINTS: 20
+  SIGMA: 2
+
+TRAIN:
+  BATCH_SIZE: 2
+  SHUFFLE: true
+TEST:
+  BATCH_SIZE: 2
+  USE_GT_BBOX: true

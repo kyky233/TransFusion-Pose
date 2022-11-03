@@ -40,6 +40,13 @@ cam_rank = {
             2: 0,  # cam3 -> cam1
             3: 1   # cam4 -> cam2
         },
+    'multiview_mvhw':
+        {
+            0: 2,  # cam1 -> cam3
+            1: 3,  # cam2 -> cam4
+            2: 0,  # cam3 -> cam1
+            3: 1  # cam4 -> cam2
+        },
     'multiview_skipose':
         {
             0: 1,
@@ -54,6 +61,7 @@ cam_rank = {
 
 cam_pair = {
     'multiview_h36m': [[0, 2], [1, 3]],
+    'multiview_mvhw': [[0, 2], [1, 3]],
     'multiview_skipose':[[0, 1], [2, 3], [4, 5]],
 }
 

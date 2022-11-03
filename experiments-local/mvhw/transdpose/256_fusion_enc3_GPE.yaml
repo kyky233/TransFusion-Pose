@@ -31,11 +31,11 @@ NETWORK:
   ATTENTION_ACTIVATION: 'relu'
 
   HEATMAP_SIZE:
-  - 64
-  - 64
+  - 128
+  - 240
   IMAGE_SIZE:
-  - 256
-  - 256
+  - 512
+  - 960
   NUM_JOINTS: 20
   SIGMA: 2
   EXTRA:

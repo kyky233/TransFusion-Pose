@@ -95,7 +95,7 @@ class MultiViewMVHW(JointsDataset):
             12: 'rwri'
         }
 
-        self.dataset_root = '/mntnfs/med_data5/yantianshuo/ourdata'
+        self.dataset_root = '/home/yandanqi/0_data/ourdata'
         self.image_dir = os.path.join(self.dataset_root, 'images_oddviews')
         self.data_format = 'images'
         self.image_set = image_set
@@ -141,9 +141,7 @@ class MultiViewMVHW(JointsDataset):
         super().do_mapping()
 
     def _sessionfile_to_list(self, filepath):
-        with open(filepath, 'r') as fr:
-            lines = fr.readlines()
-        return [item.strip() for item in lines]
+        return ['20220618_1b492fd601_subj22']
 
     def _get_db(self):
         width = 1080
@@ -221,7 +219,6 @@ class MultiViewMVHW(JointsDataset):
                     bbx = bbx_all[cam_id-1, img_num]  # (5, ) --- [x, y, h, w]
                     center = (bbx[0] + 0.5*bbx[2], bbx[1] + 0.5*bbx[3])
                     scale = (bbx[2]/100, bbx[3]/100.0)
-
                     db.append({
                         'source': 'mvhw',
                         'key': "{}_{}-{}".format(seq, cam_name, str(frame_idx).zfill(6)),

@@ -13,6 +13,7 @@ import copy
 import random
 import numpy as np
 import os.path as osp
+import matplotlib.pyplot as plt
 
 import torch
 from torch.utils.data import Dataset
@@ -189,10 +190,12 @@ class JointsDataset(Dataset):
         KRT = cropK.dot(Rt)                 # (3,4)    camera matrix (intrinsic & extrinsic)
 
         # preprocess image  (1000, 1000) - > (256, 256)
+        input_numpy_origin = data_numpy
         input = cv2.warpAffine(
             data_numpy,
             trans, (int(self.image_size[0]), int(self.image_size[1])),
             flags=cv2.INTER_LINEAR)             # numpy image
+        input_numpy = input     # use for visualization
 
         if self.transform:
             input = self.transform(input)
@@ -215,6 +218,17 @@ class JointsDataset(Dataset):
         # ========================== 3D ray vectors ====================================
         # (256/down * 256/down, 3)
         coords_ray = self.create_3d_ray_coords(camera, trans_inv)
+
+        # ======================== visualize ============================
+        # fig = plt.figure()
+        # # image
+        # ax = fig.add_subplot(1, 2, 1)
+        # ax.imshow(input_numpy)
+        # ax = fig.add_subplot(1, 2, 2)
+        # ax.imshow(input_numpy_origin)
+        #
+        # plt.show()
+        # plt.close()
 
         # ==========================  Meta Info ==========================
         meta = {
