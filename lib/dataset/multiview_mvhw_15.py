@@ -42,9 +42,16 @@ origin_joints = {
     14: 'right_knee',
     15: 'left_ankle',
     16: 'right_ankle',
+    17: 'neck',  # fake
+    18: 'root',  # fake, mid_hip
 }
 
-SELECTED_JOINTS = [12, 14, 16, 11, 13, 15, 0, 5, 7, 9, 6, 8, 10]
+# union(20) to h36m(15) / mvhw15
+UNION_TO_H36M15 = [0, 1, 2, 3, 4, 5, 6, 9, 11, 14, 15, 16, 17, 18, 19]
+
+# fake(19) to h36m(15)
+FAKE_TO_H36M15 = [18, 12, 14, 16, 11, 13, 15, 17, 0, 5, 7, 9, 2, 4, 6]
+
 
 use_2d_gt = True
 
@@ -82,19 +89,21 @@ class MultiViewMVHW(JointsDataset):
     def __init__(self, cfg, image_set, is_train, transform=None):
         super().__init__(cfg, image_set, is_train, transform)
         self.actual_joints = {
-            0: 'rhip',
-            1: 'rkne',
-            2: 'rank',
-            3: 'lhip',
-            4: 'lkne',
-            5: 'lank',
-            6: 'nose',
-            7: 'lsho',
-            8: 'lelb',
-            9: 'lwri',
-            10: 'rsho',
-            11: 'relb',
-            12: 'rwri'
+            0:'root',
+            1: 'rhip',
+            2: 'rkne',
+            3: 'rank',
+            4: 'lhip',
+            5: 'lkne',
+            6: 'lank',
+            7: 'neck',
+            8: 'nose',
+            9: 'lsho',
+            10: 'lelb',
+            11: 'lwri',
+            12: 'rsho',
+            13: 'relb',
+            14: 'rwri'
         }
 
         self.dataset_root = '/mntnfs/med_data5/yantianshuo/ourdata'
@@ -119,7 +128,7 @@ class MultiViewMVHW(JointsDataset):
             self._interval = 1
         self.num_views = len(self.cam_list)
 
-        self.db_file = 'group_{}_cam{}_tp.pkl'.format(self.image_set, self.num_views)
+        self.db_file = 'group_{}_cam{}_tp_15.pkl'.format(self.image_set, self.num_views)
         self.db_file = os.path.join(self.dataset_root, self.db_file)
 
         if osp.exists(self.db_file):
@@ -149,6 +158,23 @@ class MultiViewMVHW(JointsDataset):
         with open(filepath, 'r') as fr:
             lines = fr.readlines()
         return [item.strip() for item in lines]
+
+    def _get_fake_points(self, pose):
+        """
+        17->19->15
+        :param pose: 17*2 or 17*3
+        :return:
+        """
+        assert pose.shape[0] == 17 and pose.shape[1] in [2, 3]
+
+        # generate neck by average left_shoulder and right_should
+        pose_neck = (pose[5] + pose[6])/2.0
+        # generate hip-mid(root) by average left_hip and right_hip
+        pose_root = (pose[11] + pose[12])/2.0
+
+        pose = np.append(pose, [pose_neck, pose_root], axis=0)   # [19, 3]
+
+        return pose[FAKE_TO_H36M15]
 
     def _get_db(self):
         width = 1080
@@ -195,14 +221,14 @@ class MultiViewMVHW(JointsDataset):
                                                 f'{seq}_{cam_name}_{frame_idx:06d}.jpg')
 
                         # get pose
-                        pose_3d = kpts_3d[int(frame_idx)][SELECTED_JOINTS]  # [num_joints, 3]
+                        pose_3d = self._get_fake_points(kpts_3d[int(frame_idx)]) # [num_joints, 3]
                         if use_2d_gt:
-                            pose_2d = kpts_2d[cam_id - 1, int(frame_idx), :, :2][SELECTED_JOINTS]  # [num_joints, 3]
+                            pose_2d = self._get_fake_points(kpts_2d[cam_id - 1, int(frame_idx), :, :2])  # [num_joints, 3]
                         else:
                             pose_2d = projectPoints(X=pose_3d.T, K=cam['K'], R=cam['R'], t=cam['t'], Kd=cam['distCoef']).T[:,
                                       :2]  # T -- cm
 
-                        poses_3d = pose_3d   # cm to mm
+                        poses_3d = pose_3d*10   # cm to mm
                         poses_vis = np.ones_like(pose_3d)
                         poses = pose_2d
 

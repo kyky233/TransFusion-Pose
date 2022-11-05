@@ -8,3 +8,4 @@ from dataset.multiview_h36m import MultiViewH36M as multiview_h36m
 from dataset.multiview_skipose import MultiViewSkiPose as multiview_skipose
 from dataset.multiview_mvhw import MultiViewMVHW as multiview_mvhw
 from dataset.multiview_mvhw_test import MultiViewMVHW as multiview_mvhw_test
+from dataset.multiview_mvhw_15 import MultiViewMVHW as multiview_mvhw_15

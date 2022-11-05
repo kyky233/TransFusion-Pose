@@ -7,8 +7,8 @@ WORKERS: 4
 PRINT_FREQ: 100
 
 DATASET:
-  TRAIN_DATASET: multiview_mvhw
-  TEST_DATASET: multiview_mvhw
+  TRAIN_DATASET: multiview_mvhw_15
+  TEST_DATASET: multiview_mvhw_15
   ROOT: '/mntnfs/med_data5/wangjiong/datasets'
   TRAIN_SUBSET: train
   TEST_SUBSET: validation
