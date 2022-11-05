@@ -20,7 +20,9 @@ import cv2
 
 from dataset.joints_dataset import JointsDataset
 
+
 logger = logging.getLogger(__name__)
+
 
 origin_joints = {
     0: 'nose',
@@ -106,12 +108,13 @@ class MultiViewMVHW(JointsDataset):
             self.ignore_list = list()
 
         if self.image_set == 'train':
-            self.sequence_list = self._sessionfile_to_list(os.path.join(self.dataset_root, 'train_list.txt'))
+            self.sequence_list = self._sessionfile_to_list(os.path.join(self.dataset_root, 'train_list.txt'))[:-20]
             # self.cam_list = ['c01', 'c02', 'c03', 'c04', 'c05', 'c06', 'c07', 'c08']
             self.cam_list = ['c01', 'c03', 'c05', 'c07']
             self._interval = 1
         elif self.image_set == 'validation':
-            self.sequence_list = self._sessionfile_to_list(os.path.join(self.dataset_root, 'valid_list.txt'))
+            # self.sequence_list = self._sessionfile_to_list(os.path.join(self.dataset_root, 'valid_list.txt'))
+            self.sequence_list = self._sessionfile_to_list(os.path.join(self.dataset_root, 'train_list.txt'))[-20:]
             self.cam_list = ['c01', 'c03', 'c05', 'c07']
             self._interval = 1
         self.num_views = len(self.cam_list)
@@ -139,6 +142,8 @@ class MultiViewMVHW(JointsDataset):
 
         self.u2a_mapping = super().get_mapping()
         super().do_mapping()
+
+        print(f"{image_set} totally has {self.db_size} items...")
 
     def _sessionfile_to_list(self, filepath):
         with open(filepath, 'r') as fr:
@@ -175,70 +180,63 @@ class MultiViewMVHW(JointsDataset):
 
             # traverse frames
             frame_len = len(image_list)
-            img_num = 0
-            for idx in range(frame_len):
-                image_name = os.path.basename(image_list[idx])
-                _, _, _, _, frame_idx = image_name.split('.')[0].split('_')
-                frame_idx = int(frame_idx)
-                if np.isnan(kpts_2d[::2, frame_idx]).any() or np.isnan(kpts_3d[frame_idx]).any():
-                    logger.info(f'NaN found in keypoints! {seq} - {frame_idx:06d}')
-                    img_num += 1
-                    continue
+            if frame_len > 1:
+                for idx in range(frame_len):
+                    image_name = os.path.basename(image_list[idx])
+                    _, _, _, _, frame_idx = image_name.split('.')[0].split('_')
+                    frame_idx = int(frame_idx)
 
-                # traverse cameras
-                for cam_name, cam in cameras.items():
-                    cam_id = int(cam_name[-1])
-                    vv = cam
+                    # traverse cameras
+                    for cam_name, cam in cameras.items():
+                        cam_id = int(cam_name[-1])
 
-                    # get image path
-                    img_path = os.path.join(self.image_dir, f'{seq}_{cam_name}',
-                                            f'{seq}_{cam_name}_{frame_idx:06d}.jpg')
+                        # get image path
+                        img_path = os.path.join(self.image_dir, f'{seq}_{cam_name}',
+                                                f'{seq}_{cam_name}_{frame_idx:06d}.jpg')
 
-                    # get pose
-                    pose_3d = kpts_3d[int(frame_idx)][SELECTED_JOINTS]  # [num_joints, 3]
-                    if use_2d_gt:
-                        pose_2d = kpts_2d[cam_id - 1, int(frame_idx), :, :2][SELECTED_JOINTS]  # [num_joints, 3]
-                    else:
-                        pose_2d = projectPoints(X=pose_3d.T, K=vv['K'], R=vv['R'], t=vv['t'], Kd=vv['distCoef']).T[:,
-                                  :2]  # T -- cm
+                        # get pose
+                        pose_3d = kpts_3d[int(frame_idx)][SELECTED_JOINTS]  # [num_joints, 3]
+                        if use_2d_gt:
+                            pose_2d = kpts_2d[cam_id - 1, int(frame_idx), :, :2][SELECTED_JOINTS]  # [num_joints, 3]
+                        else:
+                            pose_2d = projectPoints(X=pose_3d.T, K=cam['K'], R=cam['R'], t=cam['t'], Kd=cam['distCoef']).T[:,
+                                      :2]  # T -- cm
 
-                    poses_3d = pose_3d   # cm to mm
-                    poses_vis = np.ones_like(pose_3d)
-                    poses = pose_2d
+                        poses_3d = pose_3d   # cm to mm
+                        poses_vis = np.ones_like(pose_3d)
+                        poses = pose_2d
 
-                    # get cam
-                    our_cam = dict()
-                    our_cam['R'] = vv['R']
-                    our_cam['T'] = -np.dot(vv['R'].T, vv['t']) * 10  # cm to mm
-                    our_cam['fx'] = np.array([vv['K'][0, 0]])
-                    our_cam['fy'] = np.array([vv['K'][1, 1]])
-                    our_cam['cx'] = np.array([vv['K'][0, 2]])
-                    our_cam['cy'] = np.array([vv['K'][1, 2]])
-                    our_cam['k'] = vv['distCoef'][[0, 1, 4]].reshape(3, 1)
-                    our_cam['p'] = vv['distCoef'][[2, 3]].reshape(2, 1)
-                    # print(f"our_cam['fx'] = {our_cam['fx']}")
+                        # get cam
+                        our_cam = dict()
+                        our_cam['R'] = cam['R']
+                        our_cam['T'] = -np.dot(cam['R'].T, cam['t']) * 10  # cm to mm
+                        our_cam['fx'] = np.array([cam['K'][0, 0]])
+                        our_cam['fy'] = np.array([cam['K'][1, 1]])
+                        our_cam['cx'] = np.array([cam['K'][0, 2]])
+                        our_cam['cy'] = np.array([cam['K'][1, 2]])
+                        our_cam['k'] = cam['distCoef'][[0, 1, 4]].reshape(3, 1)
+                        our_cam['p'] = cam['distCoef'][[2, 3]].reshape(2, 1)
+                        # print(f"our_cam['fx'] = {our_cam['fx']}")
 
-                    # get center and scale for crop
-                    bbx = bbx_all[cam_id-1, img_num]  # (5, ) --- [x, y, h, w]
-                    center = (bbx[0] + 0.5*bbx[2], bbx[1] + 0.5*bbx[3])
-                    scale = (bbx[2]/100, bbx[3]/100.0)
+                        # get center and scale for crop
+                        bbx = bbx_all[cam_id-1, frame_idx]  # (5, ) --- [x, y, h, w]
+                        center = (bbx[0] + 0.5*bbx[2], bbx[1] + 0.5*bbx[3])
+                        scale = (bbx[2]/100, bbx[3]/100.0)
 
-                    db.append({
-                        'source': 'mvhw',
-                        'key': "{}_{}-{}".format(seq, cam_name, str(frame_idx).zfill(6)),
-                        'subject': subject_id,
-                        'camera_id': cam_name,
-                        'image': img_path,
-                        'image_name': os.path.basename(img_path),
-                        'joints_3d': poses_3d,
-                        'joints_2d': poses,
-                        'joints_vis': poses_vis,
-                        'camera': our_cam,
-                        'center': center,
-                        'scale': scale,
-                    })
-
-                img_num += 1
+                        db.append({
+                            'source': 'mvhw',
+                            'key': "{}_{}-{}".format(seq, cam_name, str(frame_idx).zfill(6)),
+                            'subject': subject_id,
+                            'camera_id': cam_name,
+                            'image': img_path,
+                            'image_name': os.path.basename(img_path),
+                            'joints_3d': poses_3d,
+                            'joints_2d': poses,
+                            'joints_vis': poses_vis,
+                            'camera': our_cam,
+                            'center': center,
+                            'scale': scale,
+                        })
 
         return db
 

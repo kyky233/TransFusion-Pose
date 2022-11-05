@@ -105,10 +105,10 @@ def main():
     print(model)
 
     this_dir = os.path.dirname(__file__)
-    shutil.copy2(
+    shutil.copy(
         os.path.join(this_dir, '../../lib/models', config.MODEL + '.py'),
         final_output_dir)
-    shutil.copy2(args.cfg, final_output_dir)
+    shutil.copy(args.cfg, final_output_dir)
     logger.info(pprint.pformat(model))
 
     writer_dict = {
