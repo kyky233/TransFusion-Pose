@@ -53,6 +53,13 @@ UNION_TO_H36M15 = [0, 1, 2, 3, 4, 5, 6, 9, 11, 14, 15, 16, 17, 18, 19]
 FAKE_TO_H36M15 = [18, 12, 14, 16, 11, 13, 15, 17, 0, 5, 7, 9, 2, 4, 6]
 
 
+# rotate our 3d joints and R simultaneously， due to in the origin anno, our person heads down
+M = np.array([[1.0, 0.0, 0.0],          # we need to rotate 180' by x axis
+              [0.0, 1.0, 0.0],
+              [0.0, 0.0, -1.0]])
+
+with_dot_M = True
+
 use_2d_gt = True
 
 
@@ -222,6 +229,8 @@ class MultiViewMVHW(JointsDataset):
 
                         # get pose
                         pose_3d = self._get_fake_points(kpts_3d[int(frame_idx)]) # [num_joints, 3]
+                        if with_dot_M:
+                            pose_3d = pose_3d.dot(M)
                         if use_2d_gt:
                             pose_2d = self._get_fake_points(kpts_2d[cam_id - 1, int(frame_idx), :, :2])  # [num_joints, 3]
                         else:
@@ -279,6 +288,8 @@ class MultiViewMVHW(JointsDataset):
                 sel_cam['K'] = np.array(cam['matrix'])
                 sel_cam['distCoef'] = np.array(cam['distortions'])
                 sel_cam['R'] = cv2.Rodrigues(np.array(cam['rotation']))[0]
+                if with_dot_M:
+                    sel_cam['R'] = sel_cam['R'].dot(M)
                 sel_cam['t'] = np.array(cam['translation']).reshape((3, 1))  # cm
                 cameras[cam['name']] = sel_cam
         return cameras
@@ -302,6 +313,9 @@ class MultiViewMVHW(JointsDataset):
         return self.db_size // self.num_views
 
     def evaluate(self, pred, *args, **kwargs):
+        gt_num = self.db_size
+        assert len(pred) == gt_num, f'{len(pred)}pred, {gt_num} gt_num, number mismatch'
+
         pred = pred.copy()
 
         headsize = self.image_size[0] / 10.0
@@ -317,9 +331,15 @@ class MultiViewMVHW(JointsDataset):
         su = np.array(list(map(u.__getitem__, indexes)))    # [ 0  1  2  3  4  5  6  7  9 11 12 14 15 16 17 18 19]
 
         gt = []
-        for items in self.grouping:
-            for item in items:
-                gt.append(self.db[item]['joints_2d'][su, :2])       # (17, 2) in original scale
+        for i in range(gt_num):
+            # index = self.num_views * i
+            # print(f"i = {i}")
+            # print(f"su = {su}")
+            # print(f"shape of self.db[i]['joints_2d'] = {self.db[i]['joints_2d'].shape}")
+            gt.append(self.db[i]['joints_2d'][su, :2])
+        # for items in self.grouping:
+        #     for item in items:
+        #         gt.append(self.db[item]['joints_2d'][su, :2])       # (17, 2) in original scale
         gt = np.array(gt)           # (num_sample, 17, 2) in original scale
         pred = pred[:, su, :2]      # (num_sample, 17, 2) in original scale
 

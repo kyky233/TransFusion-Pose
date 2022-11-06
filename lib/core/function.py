@@ -237,8 +237,8 @@ def validate(config,
     nsamples = len(dataset) * n_view
 
     njoints = config.NETWORK.NUM_JOINTS                 # 17
-    height = int(config.NETWORK.HEATMAP_SIZE[0])        # 64
-    width = int(config.NETWORK.HEATMAP_SIZE[1])         # 64
+    height = int(config.NETWORK.HEATMAP_SIZE[1])        # 64
+    width = int(config.NETWORK.HEATMAP_SIZE[0])         # 64
     all_preds = np.zeros((nsamples, njoints, 3), dtype=np.float32)      # (#sample, 17, 3)
     all_heatmaps = np.zeros(
         (nsamples, njoints, height, width), dtype=np.float32)           # (#sample, 17,64, 64)
@@ -336,6 +336,8 @@ def validate(config,
                 pred = pred[:, :, 0:2]          # (bs, 17, 2)
                 pred = np.concatenate((pred, maxval), axis=2)       # (bs, 17, 3)
                 preds[k::nviews] = pred
+                # print(f"shape of heatmaps = {heatmaps.shape}")
+                # print(f"shape of output = {o.shape}")
                 heatmaps[k::nviews] = o.clone().cpu().numpy()       # (bs, 17, 64, 64)
 
             all_preds[idx:idx + nimgs] = preds                      # (bs * #view, 17, 3) in original image

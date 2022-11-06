@@ -29,10 +29,9 @@ NETWORK:
   N_HEAD: 8
   POS_EMBEDDING: 'sine'
   ATTENTION_ACTIVATION: 'relu'
-
   HEATMAP_SIZE:
-  - 64
-  - 120
+  - 64   # height?
+  - 120    # width?
   IMAGE_SIZE:
   - 256
   - 480
@@ -46,7 +45,7 @@ NETWORK:
 LOSS:
   USE_TARGET_WEIGHT: true
 TRAIN:
-  BATCH_SIZE: 8
+  BATCH_SIZE: 4
   SHUFFLE: true
   BEGIN_EPOCH: 0
   END_EPOCH: 20
@@ -63,7 +62,7 @@ TRAIN:
   MOMENTUM: 0.9
   NESTEROV: false
 TEST:
-  BATCH_SIZE: 16
+  BATCH_SIZE: 8
   BBOX_FILE: ''
   BBOX_THRE: 1.0
   DETECTOR: fpn_dcn
