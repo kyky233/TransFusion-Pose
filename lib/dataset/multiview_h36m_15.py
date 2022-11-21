@@ -2,9 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # Written by Chunyu Wang (chnuwa@microsoft.com)
-# Revised by Haoyu Ma
 # ------------------------------------------------------------------------------
-
 
 from __future__ import absolute_import
 from __future__ import division
@@ -17,8 +15,11 @@ import collections
 
 from dataset.joints_dataset import JointsDataset
 
+# h36m(17) to h36m(15) / mvhw15
+H36M17_TO_H36M15 = [0, 1, 2, 3, 4, 5, 6, 8, 9, 11, 12, 13, 14, 15, 16]
 
-class MultiViewSkiPose(JointsDataset):
+
+class MultiViewH36M(JointsDataset):
 
     def __init__(self, cfg, image_set, is_train, transform=None):
         super().__init__(cfg, image_set, is_train, transform)
@@ -30,27 +31,29 @@ class MultiViewSkiPose(JointsDataset):
             4: 'lhip',
             5: 'lkne',
             6: 'lank',
-            7: 'belly',
-            8: 'neck',
-            9: 'nose',
-            10: 'head',
-            11: 'lsho',
-            12: 'lelb',
-            13: 'lwri',
-            14: 'rsho',
-            15: 'relb',
-            16: 'rwri'
+            7: 'neck',
+            8: 'nose',
+            9: 'lsho',
+            10: 'lelb',
+            11: 'lwri',
+            12: 'rsho',
+            13: 'relb',
+            14: 'rwri'
         }
 
-        self.root = '/mntnfs/med_data5/junhaoran/dataset'
         if cfg.DATASET.CROP:
-            anno_file = osp.join(self.root, 'skipose', 'annot',
-                                 'ski_{}.pkl'.format(image_set))
+            anno_file = osp.join(self.root, 'human36m', 'annot',
+                                 'h36m_{}.pkl'.format(image_set))
         else:
-            anno_file = osp.join(self.root, 'skipose', 'annot',
-                                 'ski_{}.pkl'.format(image_set))
+            anno_file = osp.join(self.root, 'human36m', 'annot',
+                                 'h36m_{}_uncrop.pkl'.format(image_set))
 
         self.db = self.load_db(anno_file)
+
+        if not cfg.DATASET.WITH_DAMAGE:
+            print('before filter', len(self.db))
+            self.db = [db_rec for db_rec in self.db if not self.isdamaged(db_rec)]
+            print('after filter', len(self.db))
 
         self.u2a_mapping = super().get_mapping()
         super().do_mapping()
@@ -58,15 +61,38 @@ class MultiViewSkiPose(JointsDataset):
         self.grouping = self.get_group(self.db)
         self.group_size = len(self.grouping)
 
+    def index_to_action_names(self):
+        return {
+            2: 'Direction',
+            3: 'Discuss',
+            4: 'Eating',
+            5: 'Greet',
+            6: 'Phone',
+            7: 'Photo',
+            8: 'Pose',
+            9: 'Purchase',
+            10: 'Sitting',
+            11: 'SittingDown',
+            12: 'Smoke',
+            13: 'Wait',
+            14: 'WalkDog',
+            15: 'Walk',
+            16: 'WalkTwo'
+        }
+
     def load_db(self, dataset_file):
         with open(dataset_file, 'rb') as f:
             dataset = pickle.load(f)
 
-        nitems = len(dataset)
-        for i in range(nitems):
-            dataset[i]['source'] = 'skipose_15'
-            dataset[i]['image'] = osp.join(self.root, 'skipose', 'images', dataset[i]['image'])
+        # dict_keys(['image', 'joints_2d', 'joints_3d', 'joints_3d_camera', 'joints_vis', 'video_id', 'image_id',
+        # 'subject', 'action', 'subaction', 'camera_id', 'source', 'camera', 'center', 'scale', 'box'])
 
+        # change joints from 17 to 15
+        for i in range(len(dataset)):
+            dataset[i]['joints_2d'] = dataset[i]['joints_2d'][H36M17_TO_H36M15]       # (17, 2)
+            dataset[i]['joints_3d'] = dataset[i]['joints_3d'][H36M17_TO_H36M15]
+            dataset[i]['joints_3d_camera'] = dataset[i]['joints_3d_camera'][H36M17_TO_H36M15]
+            dataset[i]['joints_vis'] = dataset[i]['joints_vis'][H36M17_TO_H36M15]         # (17, 3)
         return dataset
 
     def get_group(self, db):
@@ -76,13 +102,18 @@ class MultiViewSkiPose(JointsDataset):
             keystr = self.get_key_str(db[i])
             camera_id = db[i]['camera_id']
             if keystr not in grouping:
-                grouping[keystr] = [-1, -1, -1, -1, -1, -1]     # 6 cameras
+                grouping[keystr] = [-1, -1, -1, -1]
             grouping[keystr][camera_id] = i
 
         filtered_grouping = []
         for _, v in grouping.items():
             if np.all(np.array(v) != -1):
                 filtered_grouping.append(v)
+
+        if self.is_train:
+            filtered_grouping = filtered_grouping[::5]
+        else:
+            filtered_grouping = filtered_grouping[::64]
 
         return filtered_grouping
 
@@ -101,9 +132,9 @@ class MultiViewSkiPose(JointsDataset):
         return self.group_size
 
     def get_key_str(self, datum):
-        seq = datum['video_id']
-        frame = datum['image_id']
-        return 'seq_{:03d}_image_{:06d}'.format(seq, frame)
+        return 's_{:02}_act_{:02}_subact_{:02}_imgid_{:06}'.format(
+            datum['subject'], datum['action'], datum['subaction'],
+            datum['image_id'])
 
     def evaluate(self, pred, *args, **kwargs):
         pred = pred.copy()
@@ -139,3 +170,15 @@ class MultiViewSkiPose(JointsDataset):
         return name_values, np.mean(joint_detection_rate)
 
 
+    def isdamaged(self, db_rec):
+        # from https://github.com/yihui-he/epipolar-transformers/blob/4da5cbca762aef6a89d37f889789f772b87d2688/data/datasets/joints_dataset.py#L174
+        #damaged seq
+        #'Greeting-2', 'SittingDown-2', 'Waiting-1'
+        if db_rec['subject'] == 9:
+            if db_rec['action'] != 5 or db_rec['subaction'] != 2:
+                if db_rec['action'] != 10 or db_rec['subaction'] != 2:
+                    if db_rec['action'] != 13 or db_rec['subaction'] != 1:
+                        return False
+        else:
+            return False
+        return True

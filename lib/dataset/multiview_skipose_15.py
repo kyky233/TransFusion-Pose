@@ -10,12 +10,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os.path
 import os.path as osp
 import numpy as np
 import pickle
 import collections
 
 from dataset.joints_dataset import JointsDataset
+
+
+SKI17_TO_H36M15 = [0, 1, 2, 3, 4, 5, 6, 8, 9, 11, 12, 13, 14, 15, 16]
 
 
 class MultiViewSkiPose(JointsDataset):
@@ -30,25 +34,27 @@ class MultiViewSkiPose(JointsDataset):
             4: 'lhip',
             5: 'lkne',
             6: 'lank',
-            7: 'belly',
-            8: 'neck',
-            9: 'nose',
-            10: 'head',
-            11: 'lsho',
-            12: 'lelb',
-            13: 'lwri',
-            14: 'rsho',
-            15: 'relb',
-            16: 'rwri'
+            # 7: 'belly',
+            7: 'neck',
+            8: 'nose',
+            # 10: 'head',
+            9: 'lsho',
+            10: 'lelb',
+            11: 'lwri',
+            12: 'rsho',
+            13: 'relb',
+            14: 'rwri'
         }
 
         self.root = '/mntnfs/med_data5/junhaoran/dataset'
         if cfg.DATASET.CROP:
             anno_file = osp.join(self.root, 'skipose', 'annot',
                                  'ski_{}.pkl'.format(image_set))
+            print(f"load anno for {image_set} set from {anno_file}")
         else:
             anno_file = osp.join(self.root, 'skipose', 'annot',
                                  'ski_{}.pkl'.format(image_set))
+            print(f"load anno for {image_set} set from {anno_file}")
 
         self.db = self.load_db(anno_file)
 
@@ -57,15 +63,20 @@ class MultiViewSkiPose(JointsDataset):
 
         self.grouping = self.get_group(self.db)
         self.group_size = len(self.grouping)
+        print(f"skipose {image_set} totally has {self.group_size} group items")
 
     def load_db(self, dataset_file):
         with open(dataset_file, 'rb') as f:
             dataset = pickle.load(f)
 
+        # turn from 17 joints to 15 joints
         nitems = len(dataset)
         for i in range(nitems):
             dataset[i]['source'] = 'skipose_15'
-            dataset[i]['image'] = osp.join(self.root, 'skipose', 'images', dataset[i]['image'])
+            dataset[i]['joints_3d'] = dataset[i]['joints_3d'][SKI17_TO_H36M15]
+            dataset[i]['joints_2d'] = dataset[i]['joints_2d'][SKI17_TO_H36M15]
+            dataset[i]['joints_vis'] = dataset[i]['joints_vis'][SKI17_TO_H36M15]
+            dataset[i]['image'] = os.path.join(self.root, 'skipose', 'images', dataset[i]['image'])
 
         return dataset
 
@@ -137,5 +148,3 @@ class MultiViewSkiPose(JointsDataset):
         for i in range(len(a2u)):
             name_values[joint_names[sa[i]]] = joint_detection_rate[i]
         return name_values, np.mean(joint_detection_rate)
-
-

@@ -20,11 +20,11 @@ DATASET:
 
 NETWORK:
   HEATMAP_SIZE:
-  - 128
-  - 240
+  - 64
+  - 64
   IMAGE_SIZE:
-  - 512
-  - 960
+  - 256
+  - 256
   NUM_JOINTS: 20
   SIGMA: 2
 

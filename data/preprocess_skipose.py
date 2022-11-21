@@ -117,19 +117,21 @@ def format_data(split):
         item = fetch_and_format(h5_label_file, i)
         all_data.append(item)
 
-
     # save images
-    os.system('mv {}/Ski-PosePTZ-CameraDataset-png/{}/seq* skipose/images/'.format(data_root, split))
+    os.system('mv {}/Ski-PosePTZ-CameraDataset-png/{}/seq* {}/skipose/images/'.format(data_root, split, data_root))
 
     # save label
     if split == 'test':
         split = 'validation'        # change name
-    with open('skipose/annot/ski_' + split + '.pkl', 'wb') as handle:
+    save_path = data_root + '/skipose/annot/ski_' + split + '.pkl'
+    with open(save_path, 'wb') as handle:
         pickle.dump(all_data, handle)
+    print(f"{split} data has been saved in {save_path}")
 
 
-os.makedirs('skipose/annot/', exist_ok=True)
-os.makedirs('skipose/images/', exist_ok=True)
+os.makedirs(os.path.join(data_root, 'skipose', 'annot'), exist_ok=True)
+os.makedirs(os.path.join(data_root, 'skipose', 'images'), exist_ok=True)
+# os.makedirs('skipose/images/', exist_ok=True)
 
 
 

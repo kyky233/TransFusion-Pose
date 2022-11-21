@@ -29,7 +29,7 @@ import random
 logger = logging.getLogger(__name__)
 
 
-NUM_VIEW = {'multiview_h36m': 4, 'multiview_skipose': 6, 'multiview_mvhw': 4, 'multiview_mvhw_15': 4}
+NUM_VIEW = {'multiview_h36m': 4, 'multiview_h36m_15': 4, 'multiview_skipose': 6, 'multiview_mvhw': 4, 'multiview_mvhw_15': 4}
 
 # pick the neighboring camera, same as Epipolar Transformers
 cam_rank = {
@@ -40,19 +40,26 @@ cam_rank = {
             2: 0,  # cam3 -> cam1
             3: 1   # cam4 -> cam2
         },
-    'multiview_mvhw':
+    'multiview_h36m_15':
         {
             0: 2,  # cam1 -> cam3
             1: 3,  # cam2 -> cam4
             2: 0,  # cam3 -> cam1
             3: 1  # cam4 -> cam2
         },
+    'multiview_mvhw':
+        {
+            0: 1,  # cam1 -> cam3
+            1: 0,  # cam2 -> cam4
+            2: 3,  # cam3 -> cam1
+            3: 2  # cam4 -> cam2
+        },
     'multiview_mvhw_15':
         {
-            0: 2,  # cam1 -> cam3
-            1: 3,  # cam2 -> cam4
-            2: 0,  # cam3 -> cam1
-            3: 1  # cam4 -> cam2
+            0: 1,  # cam1 -> cam3
+            1: 0,  # cam2 -> cam4
+            2: 3,  # cam3 -> cam1
+            3: 2  # cam4 -> cam2
         },
     'multiview_skipose':
         {
@@ -68,8 +75,9 @@ cam_rank = {
 
 cam_pair = {
     'multiview_h36m': [[0, 2], [1, 3]],
-    'multiview_mvhw': [[0, 2], [1, 3]],
-    'multiview_mvhw_15': [[0, 2], [1, 3]],
+    'multiview_h36m_15': [[0, 2], [1, 3]],
+    'multiview_mvhw': [[0, 1], [2, 3]],
+    'multiview_mvhw_15': [[0, 1], [2, 3]],
     'multiview_skipose':[[0, 1], [2, 3], [4, 5]],
 }
 
@@ -298,7 +306,10 @@ def validate(config,
                 t = t.cuda(non_blocking=True)
                 w = w.cuda(non_blocking=True)
                 target_cuda.append(t)
-                loss += criterion(o, t, w)
+                if output is not None:
+                    loss += criterion(o, t, w)
+                else:
+                    print(f"output is None!")
 
             target = target_cuda
 
@@ -396,7 +407,7 @@ def validate(config,
         logger.info('| ' + full_arch_name + ' ' +
                     ' '.join(['| {:.3f}'.format(value) for value in values]) +
                     ' |')
-        logger.info('Evaluate on 256 x 256 {}'.format(str(perf_indicator)))
+        logger.info(f'Evaluate on {config.NETWORK.IMAGE_SIZE[0]} x {config.NETWORK.IMAGE_SIZE[1]} {str(perf_indicator)}')
 
     return perf_indicator
 

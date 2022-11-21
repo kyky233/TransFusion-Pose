@@ -50,6 +50,18 @@ def compute_limb_length(body, pose):
     return limb_length
 
 
+def _calculate_mpjpe_valid(mpjpes, threshold=500):
+    mpjpe_all = []
+    cnt = 0
+    for mpjpe in mpjpes:
+        if mpjpe < threshold:
+            mpjpe_all.append(mpjpe)
+            cnt += 1
+    valid_ratio = 100 * (cnt/len(mpjpes))
+    mpjpe_mean = np.array(mpjpe_all).mean()
+    return mpjpe_mean, valid_ratio
+
+
 def main():
     args = parse_args()
     logger, final_output_dir, tb_log_dir = create_logger(
@@ -62,6 +74,7 @@ def main():
 
     all_locations = h5py.File(prediction_path)['locations']     # (#sample, 17, 2)
     all_heatmaps = h5py.File(prediction_path)['heatmaps']       # (#sample, 17, 64, 64)
+    print(f"load prediction results from{prediction_path}")
 
     cnt = 0
     grouping = test_dataset.grouping
@@ -81,9 +94,13 @@ def main():
             camera = datum['camera']        # dict: {R, T, fx, fy, cx, cy}
             cameras.append(camera)
 
-            poses.append(
-                camera_to_world_frame(datum['joints_3d_camera'], camera['R'],
-                                      camera['T']))       # pose in 3D world coordinate (17, 3)
+            if 'h36m' in config.DATASET.TEST_DATASET:
+                poses.append(camera_to_world_frame(datum['joints_3d_camera'], camera['R'],
+                                               camera['T']))       # pose in 3D world coordinate (17, 3)
+            elif 'mvhw' in config.DATASET.TEST_DATASET:
+                poses.append(datum['joints_3d'])    # pose in 3d world
+            else:
+                raise Exception(f"pose not define in {config.DATASET.TEST_DATASET}")
 
             locations.append(all_locations[cnt])
             heatmaps.append(all_heatmaps[cnt])
@@ -122,10 +139,12 @@ def main():
             pose3d_output[frame_name]['GT'] = poses[0].tolist()
 
     logger.info('Triangulation MPJPE {}'.format(np.mean(mpjpes)))
-    
-    if config.DATASET.TRAIN_DATASET == 'multiview_h36m':
-        json.dump(mpjpe_score_output, open(os.path.join(final_output_dir, 'mpjpe_score.json'), 'w'), indent=4, sort_keys=True)
-        json.dump(pose3d_output, open(os.path.join(final_output_dir, 'output_3d_joint.json'), 'w'), indent=4, sort_keys=True)
+    mpjpes_valid, valid_ratio = _calculate_mpjpe_valid(mpjpes)
+    logger.info(f'Valid Triangulation MPJPE: {mpjpes_valid}, valid_ratio: {valid_ratio}')
+
+    # if config.DATASET.TRAIN_DATASET == 'multiview_h36m':
+    json.dump(mpjpe_score_output, open(os.path.join(final_output_dir, 'mpjpe_score.json'), 'w'), indent=4, sort_keys=True)
+    json.dump(pose3d_output, open(os.path.join(final_output_dir, 'output_3d_joint.json'), 'w'), indent=4, sort_keys=True)
 
 
 if __name__ == '__main__':

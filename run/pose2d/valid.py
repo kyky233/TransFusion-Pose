@@ -122,6 +122,7 @@ def main():
         logger.info('=> loading model from {}'.format(config.TEST.MODEL_FILE))
         model.load_state_dict(torch.load(config.TEST.MODEL_FILE))
     else:
+        print(f"config.TEST.STATE = {config.TEST.STATE}")
         model_path = 'model_best.pth.tar' if config.TEST.STATE == 'best' else 'final_state.pth.tar'
         model_state_file = os.path.join(final_output_dir, model_path)
         logger.info('=> loading model from {}'.format(model_state_file))

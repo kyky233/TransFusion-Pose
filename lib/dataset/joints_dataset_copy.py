@@ -151,10 +151,6 @@ class JointsDataset(Dataset):
 
         center = np.array(db_rec['center']).copy()      # (2, )     (cx, cy)  in original image scale
         scale = np.array(db_rec['scale']).copy()        # (2, )     (s1, s2)
-        if 'mvhw' in db_rec['source']:
-            scale = np.array([scale.max(), scale.max()])/1.5
-        else:
-            scale = np.array([scale.max(), scale.max()])
         rotation = 0
 
         # ==================================== Camera  ====================================

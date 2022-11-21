@@ -46,11 +46,11 @@ origin_joints = {
     18: 'root',  # fake, mid_hip
 }
 
-# union(20) to h36m(15) / mvhw15
-UNION_TO_H36M15 = [0, 1, 2, 3, 4, 5, 6, 9, 11, 14, 15, 16, 17, 18, 19]
+# # union(20) to h36m(15) / mvhw15
+# UNION_TO_H36M15 = [0, 1, 2, 3, 4, 5, 6, 9, 11, 14, 15, 16, 17, 18, 19]
 
 # fake(19) to h36m(15)
-FAKE_TO_H36M15 = [18, 12, 14, 16, 11, 13, 15, 17, 0, 5, 7, 9, 2, 4, 6]
+FAKE_TO_H36M15 = [18, 12, 14, 16, 11, 13, 15, 17, 0, 5, 7, 9, 6, 8, 10]
 
 
 # rotate our 3d joints and R simultaneously， due to in the origin anno, our person heads down
@@ -61,6 +61,9 @@ M = np.array([[1.0, 0.0, 0.0],          # we need to rotate 180' by x axis
 with_dot_M = True
 
 use_2d_gt = True
+
+# used to filter unreasonable pose
+reproject_thresh = None   # unit: pixel
 
 
 def projectPoints(X, K, R, t, Kd):
@@ -113,51 +116,80 @@ class MultiViewMVHW(JointsDataset):
             14: 'rwri'
         }
 
-        self.dataset_root = '/mntnfs/med_data5/yantianshuo/ourdata'
-        self.image_dir = os.path.join(self.dataset_root, 'images_oddviews')
+        if os.path.isdir('/home/yandanqi'):
+            self.root = '/home/yandanqi/0_data/ourdata'
+        elif os.path.isdir('/mntnfs/med_data5/yantianshuo/'):
+            self.root = '/mntnfs/med_data5/yantianshuo/ourdata'
+        else:
+            self.root = '/data/posedata/mvhw'
+        print(f"current dataset root = {self.root}")
+        if self.root == '/data/posedata/mvhw':
+            self.image_dir = os.path.join(self.root, f'{image_set}_images_oddviews')
+        else:
+            self.image_dir = os.path.join(self.root, 'images_oddviews')
+        print(f"current image dir = {self.image_dir}")
+        # self.image_dir = os.path.join(self.dataset_root, 'images_oddviews')
         self.data_format = 'images'
         self.image_set = image_set
 
-        if os.path.isfile(os.path.join(self.dataset_root, 'ignore_list.txt')):
-            self.ignore_list = self._sessionfile_to_list(os.path.join(self.dataset_root, 'ignore_list.txt'))
+        if os.path.isfile(os.path.join(self.root, 'ignore_list.txt')):
+            self.ignore_list = self._sessionfile_to_list(os.path.join(self.root, 'ignore_list.txt'))
         else:
             self.ignore_list = list()
 
         if self.image_set == 'train':
-            self.sequence_list = self._sessionfile_to_list(os.path.join(self.dataset_root, 'train_list.txt'))[:-3]
-            # self.cam_list = ['c01', 'c02', 'c03', 'c04', 'c05', 'c06', 'c07', 'c08']
-            self.cam_list = ['c01', 'c03', 'c05', 'c07']
+            self.sequence_list = self._sessionfile_to_list(os.path.join(self.root, 'train_list.txt'))[:-3]
+            # self.sequence_list = self._sessionfile_to_list(os.path.join(self.dataset_root, 'train_list.txt'))
             self._interval = 1
         elif self.image_set == 'validation':
             # self.sequence_list = self._sessionfile_to_list(os.path.join(self.dataset_root, 'valid_list.txt'))
-            self.sequence_list = self._sessionfile_to_list(os.path.join(self.dataset_root, 'train_list.txt'))[-3:]
-            self.cam_list = ['c01', 'c03', 'c05', 'c07']
+            self.sequence_list = self._sessionfile_to_list(os.path.join(self.root, 'train_list.txt'))[-3:]
             self._interval = 1
+            # self.cam_list = ['c01', 'c03', 'c05', 'c07']
+        elif self.image_set == 'valid':
+            # self.sequence_list = self._sessionfile_to_list(os.path.join(self.dataset_root, 'valid_list.txt'))
+            self.sequence_list = self._sessionfile_to_list(os.path.join(self.root, 'valid_list.txt'))
+            self._interval = 1
+            # self.cam_list = ['c01', 'c03', 'c05', 'c07']
+        elif self.image_set == 'test':
+            # self.sequence_list = self._sessionfile_to_list(os.path.join(self.dataset_root, 'valid_list.txt'))
+            self.sequence_list = self._sessionfile_to_list(os.path.join(self.root, 'test_list.txt'))
+            self._interval = 1
+            # self.cam_list = ['c01', 'c03', 'c05', 'c07']
+
+        # if self.use_even_views:
+        #     self.cam_list = ['c02', 'c04', 'c06', 'c08']
+        # else:
+        #     self.cam_list = ['c01', 'c03', 'c05', 'c07']
+        self.cam_list = ['c01', 'c03', 'c05', 'c07']
         self.num_views = len(self.cam_list)
 
-        self.db_file = 'group_{}_cam{}_tp_15.pkl'.format(self.image_set, self.num_views)
-        self.db_file = os.path.join(self.dataset_root, self.db_file)
-
-        if osp.exists(self.db_file):
-            info = pickle.load(open(self.db_file, 'rb'))
-            assert info['sequence_list'] == self.sequence_list
-            assert info['interval'] == self._interval
-            assert info['cam_list'] == self.cam_list
-            self.db = info['db']
-        else:
-            self.db = self._get_db()
-            info = {
-                'sequence_list': self.sequence_list,
-                'interval': self._interval,
-                'cam_list': self.cam_list,
-                'db': self.db
-            }
-            pickle.dump(info, open(self.db_file, 'wb'))
-        # self.db = self._get_db()
+        # self.db_file = 'group_{}_cam{}_tp_15.pkl'.format(self.image_set, self.num_views)
+        # self.db_file = os.path.join(self.root, self.db_file)
+        #
+        # if osp.exists(self.db_file):
+        #     info = pickle.load(open(self.db_file, 'rb'))
+        #     assert info['sequence_list'] == self.sequence_list
+        #     assert info['interval'] == self._interval
+        #     assert info['cam_list'] == self.cam_list
+        #     self.db = info['db']
+        # else:
+        #     self.db = self._get_db()
+        #     info = {
+        #         'sequence_list': self.sequence_list,
+        #         'interval': self._interval,
+        #         'cam_list': self.cam_list,
+        #         'db': self.db
+        #     }
+        #     pickle.dump(info, open(self.db_file, 'wb'))
+        self.db = self._get_db()
         self.db_size = len(self.db)
 
         self.u2a_mapping = super().get_mapping()
         super().do_mapping()
+
+        self.grouping = self.get_group(self.db)
+        self.group_size = len(self.grouping)
 
         print(f"{image_set} totally has {self.db_size} items...")
 
@@ -166,7 +198,17 @@ class MultiViewMVHW(JointsDataset):
             lines = fr.readlines()
         return [item.strip() for item in lines]
 
+    def get_group(self, db):
+        """
+        :return: [[0,1,2,3], [4,5,6,7], ...]
+        """
+        num_all = (len(db)//self.num_views)*self.num_views
+        grouping = np.array([i for i in range(num_all)])
+
+        return grouping.reshape(-1, self.num_views)
+
     def _get_fake_points(self, pose):
+
         """
         17->19->15
         :param pose: 17*2 or 17*3
@@ -195,8 +237,8 @@ class MultiViewMVHW(JointsDataset):
             cameras = self._get_cam(seq)
 
             # get anno file for this seq
-            kpts_2d_file = os.path.join(self.dataset_root, 'keypoints2d', f'{seq}.npy')
-            kpts_3d_file = os.path.join(self.dataset_root, 'keypoints3d_anioptim', f'{seq}.npy')
+            kpts_2d_file = os.path.join(self.root, 'keypoints2d', f'{seq}.npy')
+            kpts_3d_file = os.path.join(self.root, 'keypoints3d_anioptim', f'{seq}.npy')
             kpts_2d = np.load(kpts_2d_file, allow_pickle=True)[0][
                 'keypoints2d']  # dict_keys(['keypoints2d', 'center', 'scale', 'keypoints2d_repro'])
             kpts_3d = np.load(kpts_3d_file, allow_pickle=True)[0][
@@ -220,6 +262,8 @@ class MultiViewMVHW(JointsDataset):
                     frame_idx = int(frame_idx)
 
                     # traverse cameras
+                    paired_group = []
+                    is_paired = True
                     for cam_name, cam in cameras.items():
                         cam_id = int(cam_name[-1])
 
@@ -241,6 +285,15 @@ class MultiViewMVHW(JointsDataset):
                         poses_vis = np.ones_like(pose_3d)
                         poses = pose_2d
 
+                        # check if the pose_3d is consistence with pose_2d by given cam params
+                        pose_2d_proj = projectPoints(X=pose_3d.T, K=cam['K'], R=cam['R'], t=cam['t'], Kd=cam['distCoef']).T[:, :2]  # T -- cm
+                        diff_max = np.abs(pose_2d - pose_2d_proj).max()
+                        if reproject_thresh is not None:
+                            if diff_max > reproject_thresh:
+                                is_paired = False
+                                print(f"reproject pose unreasonable! {seq} - {frame_idx:06d}")
+                                break
+
                         # get cam
                         our_cam = dict()
                         our_cam['R'] = cam['R']
@@ -258,7 +311,21 @@ class MultiViewMVHW(JointsDataset):
                         center = (bbx[0] + 0.5*bbx[2], bbx[1] + 0.5*bbx[3])
                         scale = (bbx[2]/100, bbx[3]/100.0)
 
-                        db.append({
+                        # db.append({
+                        #     'source': 'mvhw',
+                        #     'key': "{}_{}-{}".format(seq, cam_name, str(frame_idx).zfill(6)),
+                        #     'subject': subject_id,
+                        #     'camera_id': cam_name,
+                        #     'image': img_path,
+                        #     'image_name': os.path.basename(img_path),
+                        #     'joints_3d': poses_3d,
+                        #     'joints_2d': poses,
+                        #     'joints_vis': poses_vis,
+                        #     'camera': our_cam,
+                        #     'center': center,
+                        #     'scale': scale,
+                        # })
+                        paired_group.append({
                             'source': 'mvhw',
                             'key': "{}_{}-{}".format(seq, cam_name, str(frame_idx).zfill(6)),
                             'subject': subject_id,
@@ -270,13 +337,16 @@ class MultiViewMVHW(JointsDataset):
                             'joints_vis': poses_vis,
                             'camera': our_cam,
                             'center': center,
-                            'scale': scale,
+                            'scale': scale
                         })
+                    if is_paired:
+                        for db_rec in paired_group:
+                            db.append(db_rec)
 
         return db
 
     def _get_cam(self, seq):
-        cam_file = osp.join(self.dataset_root, 'cameras', f'{seq}.json')
+        cam_file = osp.join(self.root, 'cameras', f'{seq}.json')
         with open(cam_file) as cfile:
             calib = json.load(cfile)
 
@@ -295,7 +365,7 @@ class MultiViewMVHW(JointsDataset):
         return cameras
 
     def _get_bbx_params(self, seq):
-        bbx_file = osp.join(self.dataset_root, 'bbox2d', f'{seq}.npy')
+        bbx_file = osp.join(self.root, 'bbox2d', f'{seq}.npy')
         bbox_all = np.load(bbx_file)    # [8, 350, 5]
         return bbox_all
 
@@ -331,15 +401,15 @@ class MultiViewMVHW(JointsDataset):
         su = np.array(list(map(u.__getitem__, indexes)))    # [ 0  1  2  3  4  5  6  7  9 11 12 14 15 16 17 18 19]
 
         gt = []
-        for i in range(gt_num):
-            # index = self.num_views * i
-            # print(f"i = {i}")
-            # print(f"su = {su}")
-            # print(f"shape of self.db[i]['joints_2d'] = {self.db[i]['joints_2d'].shape}")
-            gt.append(self.db[i]['joints_2d'][su, :2])
-        # for items in self.grouping:
-        #     for item in items:
-        #         gt.append(self.db[item]['joints_2d'][su, :2])       # (17, 2) in original scale
+        # for i in range(gt_num):
+        #     # index = self.num_views * i
+        #     # print(f"i = {i}")
+        #     # print(f"su = {su}")
+        #     # print(f"shape of self.db[i]['joints_2d'] = {self.db[i]['joints_2d'].shape}")
+        #     gt.append(self.db[i]['joints_2d'][su, :2])
+        for items in self.grouping:
+            for item in items:
+                gt.append(self.db[item]['joints_2d'][su, :2])       # (17, 2) in original scale
         gt = np.array(gt)           # (num_sample, 17, 2) in original scale
         pred = pred[:, su, :2]      # (num_sample, 17, 2) in original scale
 
