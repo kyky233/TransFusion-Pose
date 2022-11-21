@@ -161,8 +161,14 @@ class MultiViewMVHW(JointsDataset):
         #     self.cam_list = ['c02', 'c04', 'c06', 'c08']
         # else:
         #     self.cam_list = ['c01', 'c03', 'c05', 'c07']
-        self.cam_list = ['c01', 'c03', 'c05', 'c07']
+        self.even_views = cfg.DATASET.EVEN_VIEWS
+        if self.even_views:
+            self.cam_list = ['c02', 'c04', 'c06', 'c08']
+        else:
+            self.cam_list = ['c01', 'c03', 'c05', 'c07']
+        # self.cam_list = ['c01', 'c03', 'c05', 'c07']
         self.num_views = len(self.cam_list)
+        print(f"cam_list = {self.cam_list}")
 
         # self.db_file = 'group_{}_cam{}_tp_15.pkl'.format(self.image_set, self.num_views)
         # self.db_file = os.path.join(self.root, self.db_file)

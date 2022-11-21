@@ -84,6 +84,9 @@ config.DATASET.WITH_DAMAGE = True
 config.DATASET.SCALE_FACTOR = 0
 config.DATASET.ROT_FACTOR = 0
 
+# whether use even views in mvhw
+config.DATASET.EVEN_VIEWS = False
+
 # train
 config.TRAIN = edict()
 config.TRAIN.LR_FACTOR = 0.1

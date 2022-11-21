@@ -62,6 +62,31 @@ def _calculate_mpjpe_valid(mpjpes, threshold=500):
     return mpjpe_mean, valid_ratio
 
 
+def _eval_list_to_ap(mpjpes, threshold):
+    total_num = len(mpjpes)
+
+    tp = np.zeros(total_num)
+    fp = np.zeros(total_num)
+    for i, mpjpe in enumerate(mpjpes):
+        if mpjpe < threshold:
+            tp[i] = 1
+        else:
+            fp[i] = 1
+    tp = np.cumsum(tp)
+    fp = np.cumsum(fp)
+    recall = tp / (total_num + 1e-5)
+    precise = tp / (tp + fp + 1e-5)
+    for n in range(total_num - 2, -1, -1):
+        precise[n] = max(precise[n], precise[n + 1])
+
+    precise = np.concatenate(([0], precise, [0]))
+    recall = np.concatenate(([0], recall, [1]))
+    index = np.where(recall[1:] != recall[:-1])[0]
+    ap = np.sum((recall[index + 1] - recall[index]) * precise[index + 1])
+
+    return ap, recall[-2]
+
+
 def main():
     args = parse_args()
     logger, final_output_dir, tb_log_dir = create_logger(
@@ -137,6 +162,19 @@ def main():
             pose3d_output[frame_name] = {}
             pose3d_output[frame_name]['pred'] = prediction[0].tolist()      # from numpy to list
             pose3d_output[frame_name]['GT'] = poses[0].tolist()
+
+    # calculate ap
+    mpjpe_threshold = np.arange(25, 155, 25)
+    aps = []
+    recs = []
+    for t in mpjpe_threshold:
+        ap, rec = _eval_list_to_ap(mpjpes=mpjpes, threshold=t)
+        aps.append(ap)
+        recs.append(rec)
+    msg = f'ap@25: {aps[0]:.4f}\tap@50: {aps[1]:.4f}\tap@75: {aps[2]:.4f}\t \
+          ap@100: {aps[3]:.4f}\tap@125: {aps[4]:.4f}\tap@150: {aps[5]:.4f}\t \
+          recall@500mm: {recs[-2]:.4f}\t'
+    logger.info(msg)
 
     logger.info('Triangulation MPJPE {}'.format(np.mean(mpjpes)))
     mpjpes_valid, valid_ratio = _calculate_mpjpe_valid(mpjpes)
