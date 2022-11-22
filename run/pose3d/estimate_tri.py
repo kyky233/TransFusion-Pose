@@ -122,7 +122,7 @@ def main():
             if 'h36m' in config.DATASET.TEST_DATASET:
                 poses.append(camera_to_world_frame(datum['joints_3d_camera'], camera['R'],
                                                camera['T']))       # pose in 3D world coordinate (17, 3)
-            elif 'mvhw' in config.DATASET.TEST_DATASET:
+            elif 'mvhw' in config.DATASET.TEST_DATASET or 'ski' in config.DATASET.TEST_DATASET:
                 poses.append(datum['joints_3d'])    # pose in 3d world
             else:
                 raise Exception(f"pose not define in {config.DATASET.TEST_DATASET}")
@@ -145,6 +145,8 @@ def main():
         prediction = triangulate_poses(cameras, locations, confs.squeeze())      # list, element: (17, 3)
 
         mpjpe = np.mean(np.sqrt(np.sum((prediction[0] * keypoint_vis - poses[0] * keypoint_vis)**2, axis=1)))
+        if 'ski' in config.DATASET.TEST_DATASET:
+            mpjpe = mpjpe*1000  # m to mm
         mpjpes.append(mpjpe)
 
         print(mpjpe)

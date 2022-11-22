@@ -29,7 +29,7 @@ import random
 logger = logging.getLogger(__name__)
 
 
-NUM_VIEW = {'multiview_h36m': 4, 'multiview_h36m_15': 4, 'multiview_skipose': 6, 'multiview_mvhw': 4, 'multiview_mvhw_15': 4}
+NUM_VIEW = {'multiview_h36m': 4, 'multiview_h36m_15': 4, 'multiview_skipose': 6, 'multiview_skipose_15':6, 'multiview_mvhw': 4, 'multiview_mvhw_15': 4}
 
 # pick the neighboring camera, same as Epipolar Transformers
 cam_rank = {
@@ -69,7 +69,16 @@ cam_rank = {
             3: 2,
             4: 5,
             5: 4
-        }
+        },
+    'multiview_skipose_15':
+        {
+            0: 1,
+            1: 0,
+            2: 3,
+            3: 2,
+            4: 5,
+            5: 4
+        },
 }
 
 
@@ -79,6 +88,7 @@ cam_pair = {
     'multiview_mvhw': [[0, 1], [2, 3]],
     'multiview_mvhw_15': [[0, 1], [2, 3]],
     'multiview_skipose':[[0, 1], [2, 3], [4, 5]],
+    'multiview_skipose_15': [[0, 1], [2, 3], [4, 5]],
 }
 
 
@@ -141,6 +151,7 @@ def train(config, data, model, criterion, optim, epoch, output_dir,
 
         # ================== model forward ==================
         output, pe_3d_out = model(input, centers=centers, rays=rays)  # list, (B, num_joints, H=64, W=64)
+        # otuput --- [6, 16, 20, 64, 64]
 
         # ================== Loss on the final heatmap (64 * 64) ==================
         loss = 0
@@ -241,7 +252,7 @@ def validate(config,
     losses = AverageMeter()
     avg_acc = AverageMeter()
 
-    n_view = 6 if config.DATASET.TEST_DATASET == 'multiview_skipose' else 4
+    n_view = 6 if 'multiview_skipose' in config.DATASET.TEST_DATASET else 4
     nsamples = len(dataset) * n_view
 
     njoints = config.NETWORK.NUM_JOINTS                 # 17
@@ -262,7 +273,7 @@ def validate(config,
             # ======================== combinations of input ========================
             batch_size = input[0].shape[0]
 
-            indexes = cam_pair[config.DATASET.TRAIN_DATASET]
+            indexes = cam_pair[config.DATASET.TEST_DATASET]
             inputs_cur = torch.cat([input[cur_idx] for (cur_idx, _) in indexes], dim=0)  # (2 * bs, #view / 2, 256, 256)
             inputs_ref = torch.cat([input[ref_idx] for (_, ref_idx) in indexes], dim=0)  # (2 * bs, #view / 2, 256, 256)
             input_set = [inputs_cur, inputs_ref]
@@ -281,6 +292,7 @@ def validate(config,
             outs_ref = torch.chunk(outs_ref, outs_ref.shape[0] // batch_size)
 
             output = [None] * len(input)
+            # print(f"output= {output}")
             for iii, (cur_idx, ref_idx) in enumerate(indexes):
                 output[cur_idx] = outs_cur[iii]
                 output[ref_idx] = outs_ref[iii]
@@ -306,11 +318,7 @@ def validate(config,
                 t = t.cuda(non_blocking=True)
                 w = w.cuda(non_blocking=True)
                 target_cuda.append(t)
-                if output is not None:
-                    loss += criterion(o, t, w)
-                else:
-                    print(f"output is None!")
-
+                loss += criterion(o, t, w)
             target = target_cuda
 
             nimgs = len(output) * output[0].size(0)     # 4 cameras * batch_size
